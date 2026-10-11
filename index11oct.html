@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Natura Task Desk</title>
+<meta name="description" content="Natura Agro-Trade internal email task tracking system" />
+<meta name="theme-color" content="#1F5130" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Natura Tasks" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+  if (window.tailwind) tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          natura: {
+            900: '#143820', 700: '#1F5130', 500: '#2F7A45', leaf: '#7AB648',
+            harvest: '#E9A23B', cream: '#F6F4EC', sand: '#ECE7D8', ink: '#1C2421'
+          }
+        },
+        fontFamily: {
+          display: ['Montserrat', 'system-ui', 'sans-serif'],
+          sans: ['Inter', 'system-ui', 'sans-serif']
+        }
+      }
+    }
+  };
+</script>
+<style>
+  /* ===== BRAND TOKENS — edit here to fine-tune Natura colours ===== */
+  :root {
+    --nat-900: #143820; --nat-700: #1F5130; --nat-500: #2F7A45; --nat-leaf: #7AB648;
+    --nat-harvest: #E9A23B; --nat-cream: #F6F4EC; --nat-ink: #1C2421;
+    --sla-green: #2F9E5B; --sla-yellow: #E0A21B; --sla-red: #D64545;
+  }
+  html, body { background: var(--nat-cream); color: var(--nat-ink); }
+  body { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; -webkit-tap-highlight-color: transparent; }
+  h1, h2, h3, .font-display { font-family: 'Montserrat', system-ui, sans-serif; }
+  .hero-bg {
+    background:
+      radial-gradient(circle at 15% 20%, rgba(122,182,72,.35), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(233,162,59,.25), transparent 40%),
+      linear-gradient(135deg, var(--nat-900), var(--nat-700) 60%, var(--nat-500));
+  }
+  /* SLA visual system driven by data-sla attribute (updated live) */
+  .task-card { border-left: 6px solid var(--sla-green); transition: box-shadow .2s, transform .2s; }
+  .task-card:hover { box-shadow: 0 10px 25px -10px rgba(20,56,32,.25); }
+  .task-card[data-sla="yellow"] { border-left-color: var(--sla-yellow); }
+  .task-card[data-sla="red"] { border-left-color: var(--sla-red); animation: redPulse 1.6s ease-in-out infinite; }
+  .task-card[data-sla="done"] { border-left-color: #B9C2BC; opacity: .88; }
+  @keyframes redPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(214,69,69,.0); } 50% { box-shadow: 0 0 0 4px rgba(214,69,69,.28); } }
+  .sla-pill[data-sla="green"] { background:#E3F4EA; color:#1E7A45; }
+  .sla-pill[data-sla="yellow"] { background:#FCF1D6; color:#8A5D00; }
+  .sla-pill[data-sla="red"] { background:#FBE1E1; color:#A82828; animation: blink 1s steps(2,start) infinite; }
+  .sla-pill[data-sla="done"] { background:#EEF0EE; color:#56625B; }
+  @keyframes blink { to { visibility: visible; } 50% { opacity: .55; } }
+  .tab-active { background: var(--nat-700); color: #fff; }
+  .scroll-thin::-webkit-scrollbar { height: 6px; width: 6px; } .scroll-thin::-webkit-scrollbar-thumb { background:#cfd6cf; border-radius: 6px; }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  [x-cloak], .hidden-important { display: none !important; }
+  .fade-in { animation: fade .25s ease; } @keyframes fade { from { opacity:0; transform: translateY(4px);} to {opacity:1; transform:none;} }
+  input, select, textarea { font-size: 16px; } /* prevents iOS zoom */
+  /* @mention system */
+  .mention { background:#E3F4EA; color:#1F5130; font-weight:600; border-radius:6px; padding:0 .3em; white-space:nowrap; }
+  .mention-menu { box-shadow: 0 18px 40px -12px rgba(20,56,32,.35), 0 0 0 1px rgba(20,56,32,.08); }
+  .mention-item[aria-selected="true"] { background: var(--nat-cream); }
+  .mention-item[aria-selected="true"] .mention-enter { opacity: 1; }
+  .pop-in { animation: popIn .14s ease-out; } @keyframes popIn { from { opacity:0; transform: translateY(-4px) scale(.98);} to { opacity:1; transform:none; } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div id="root"></div>
+<div id="modal-root"></div>
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 z-[80] hidden"></div>
+
+<script>
+/* =====================================================================
+   NATURA TASK DESK — CONFIGURATION
+   ===================================================================== */
+const CONFIG = {
+  APP_NAME: 'Natura Task Desk',
+  COMPANY: 'Natura Agro-Trade',
+  TAGLINE: 'Grown by Nature. Delivered by Natura.',
+  LOGO_URL: 'https://natura-eg.com/wp-content/uploads/2026/06/cropped-Group-270x270.png',
+
+  // Leave empty for DEMO mode (data in this browser only).
+  // Paste your Google Apps Script Web App URL here for LIVE shared mode.
+  API_URL: '',
+
+  POLL_SECONDS: 30,          // live sync interval
+  SLA_YELLOW_HOURS: 2,       // green → yellow
+  SLA_RED_HOURS: 5,          // yellow → red (overdue)
+  REMIND_EVERY_MIN: 30,      // repeat alert for still-overdue tasks
+
+  WEBMAIL: 'zoho',           // 'zoho' or 'outlook' — what "Open webmail" opens
+  ZOHO_URL: 'https://mail.zoho.com/zm/',
+  OUTLOOK_URL: 'https://outlook.office.com/mail/',
+
+  // Shared mailboxes: a "To:" match on these does NOT assign; greeting decides.
+  SHARED_INBOXES: ['info@natura-eg.com', 'sales@natura-eg.com', 'export@natura-eg.com'],
+  SHOW_DEMO_ACCOUNTS: true
+};
+
+/* =====================================================================
+   MOCK USER DATABASE (demo mode) — mirrors the Excel columns:
+   Name | Username | Password | Email | Role | Aliases | Active
+   ===================================================================== */
+/* Your team (from Book3.xlsx). Passwords are stored as SHA-256 hashes, never plain text.
+   ⚠ Emails are a firstname@natura-eg.com guess — correct them in Team → Edit or in the Sheet. */
+const SEED_VERSION = 2;  // bump to reload this list in browsers that already ran the demo
+const SEED_USERS = [
+  { name: 'Ingy', username: 'Ingy', password: 'sha256:6e4244e3030a9770416194b9f9c185d58280fb174f9c096a258ee74c47efc36c', email: 'ingy@natura-eg.com', role: 'admin', aliases: 'Ingy, Engy, Injy, إنجي', active: true },
+  { name: 'Ahmed Shouieb', username: 'Shouieb', password: 'sha256:f945b474651e0692fc7fde1a6356e777e0c164e11673335235c3872058c71bf2', email: 'shouieb@natura-eg.com', role: 'admin', aliases: 'Ahmed, Shouieb, Shouib, أحمد', active: true },
+  { name: 'Hamed', username: 'Hamed', password: 'sha256:07a6c47bed3b88aaf3c29933abfac377d487661494caf082a35f86d46232f397', email: 'hamed@natura-eg.com', role: 'admin', aliases: 'Hamed, حامد', active: true },
+  { name: 'Ali', username: 'Ali', password: 'sha256:dbd0b5699c99a8a9d244d22a61c537ccf3521ed9f77feeeb84335256f5d807bb', email: 'ali@natura-eg.com', role: 'employee', aliases: 'Ali, Aly, علي', active: true },
+  { name: 'Mohamed Ali', username: 'Mohamed ali', password: 'sha256:17dd58aa247486788375d0b07f2b0369815bf84f67cd3b504183e773e67b9d19', email: 'mohamed.ali@natura-eg.com', role: 'employee', aliases: 'Mohamed, Mohammed, Mohamad, محمد', active: true },
+  { name: 'Shallaby', username: 'Shallaby', password: 'sha256:ef1aa8cb311075c952243da394e92131d7424c03e1f341b6f7d2f4fb46fc0850', email: 'shallaby@natura-eg.com', role: 'employee', aliases: 'Shallaby, Shalaby, Shalabi, شلبي', active: true },
+  { name: 'Youssef', username: 'Youssef', password: 'sha256:cd3c720e4a42d1560b62091d5984f09468728e5d8c3e694bd08a493e7b5ab323', email: 'youssef@natura-eg.com', role: 'employee', aliases: 'Youssef, Yousef, Youssif, Yousif, يوسف', active: true }
+];
+
+const H = 3600e3, M = 60e3;
+function seedEmails() {
+  const now = Date.now();
+  return [
+    { from: 'Lukas Weber <l.weber@frischmarkt.de>', to: 'ali@natura-eg.com', subject: 'Strawberry IQF – updated quotation for 3 containers', receivedAt: now - 25*M,
+      body: 'Dear Ali,\n\nThank you for the samples, the team was happy with the colour and size grading. Could you please send us an updated quotation for 3 x 40ft reefer containers of IQF strawberries, CIF Hamburg? We need the offer by Wednesday to present it to our purchasing board.\n\nKind regards,\nLukas Weber' },
+    { from: 'Priya Nair <priya@freshlinkasia.com>', to: 'info@natura-eg.com', subject: 'Shipping documents for PO 4471', receivedAt: now - 70*M,
+      body: 'Dear Youssef,\n\nOur container for PO 4471 arrived in Singapore this morning but the phytosanitary certificate is missing from the document set. Kindly share a scanned copy urgently so customs clearance is not delayed. The original can follow by courier.\n\nThanks,\nPriya' },
+    { from: 'Marco Bellini <marco.b@ortofresco.it>', to: 'mohamed.ali@natura-eg.com', subject: 'Jalapeño jars – label artwork approval', receivedAt: now - 150*M,
+      body: 'Dear Mohamed,\n\nPlease find attached the final label artwork for the 720ml jalapeño jars. Can you review the Italian ingredient list and confirm approval before Friday? Printing is booked for next Monday.\n\nBest,\nMarco' },
+    { from: 'Sophie Martin <s.martin@leclerc-import.fr>', to: 'shallaby@natura-eg.com', subject: 'Beetroot 2 KG – payment terms', receivedAt: now - 200*M,
+      body: 'Dear Shallaby,\n\nFollowing our call, we would like to move from 60 to 45 days payment terms in exchange for a 1.5% price reduction on the beetroot 2 KG pouches. Please confirm whether this is acceptable so we can issue the new contract.\n\nRegards,\nSophie' },
+    { from: 'Omar Al-Fahad <omar@gulffoods.ae>', to: 'export@natura-eg.com', subject: 'New season bell peppers – availability', receivedAt: now - 290*M,
+      body: 'Dear Engy,\n\nWe are planning our winter programme and would like to know your weekly availability of red and yellow bell peppers from November to March, plus your best FOB Alexandria price. Please also advise on minimum order quantity.\n\nBest regards,\nOmar' },
+    { from: 'Jan de Vries <jan@hollandverse.nl>', to: 'hamed@natura-eg.com', subject: 'Quality complaint – batch PT-0921 potatoes', receivedAt: now - 6.2*H,
+      body: 'Dear Hamed,\n\nWe found greening on around 8% of the potatoes in batch PT-0921. Photos are attached. We need your investigation report and a proposal for compensation as soon as possible, ideally today, as our client is waiting.\n\nJan' },
+    { from: 'Customs Broker <ops@alexclear.com.eg>', to: 'info@natura-eg.com', subject: 'Booking confirmation needed – vessel MSC Aurora', receivedAt: now - 8*H,
+      body: 'Dear Ahmed,\n\nThe shipping line needs your final confirmation of the booking for vessel MSC Aurora (ETD Thursday). Kindly confirm the container count and VGM details before 4 pm tomorrow, otherwise the slot will be released.\n\nThank you,\nAlexClear Operations' },
+    { from: 'Newsletter <news@agri-expo.com>', to: 'info@natura-eg.com', subject: 'Fruit Logistica 2027 – early bird stands', receivedAt: now - 26*H,
+      body: 'Hello,\n\nEarly bird registration for exhibitor stands at Fruit Logistica 2027 is now open. Book before 30 November to get 15% off.\n\nThe Agri-Expo Team' },
+    { from: 'Anna Kowalski <anna@polfresh.pl>', to: 'ali@natura-eg.com', subject: 'Re: Sample shipment received', receivedAt: now - 30*H, status: 'replied',
+      body: 'Dear Ali,\n\nJust to let you know the samples arrived in perfect condition. We will come back with feedback next week.\n\nAnna' },
+    { from: 'Daniel Brooks <dbrooks@us-produce.com>', to: 'youssef@natura-eg.com', subject: 'Certificates for audit', receivedAt: now - 3.5*H,
+      body: 'Dear Youssef,\n\nOur annual supplier audit is next week. Could you send updated copies of your BRCGS and GlobalG.A.P. certificates? We also need the latest pesticide residue analysis for strawberries.\n\nThanks,\nDaniel' }
+  ];
+}
+
+const DEMO_INCOMING = [
+  { from: 'Elena Petrova <elena@balticfresh.lt>', to: 'info@natura-eg.com', subject: 'Urgent: revised ETA for container MSKU 77321',
+    body: 'Dear Mohamed,\n\nOur warehouse needs the revised ETA for container MSKU 77321 today. Please send the updated tracking and confirm if the reefer temperature log is available.\n\nRegards,\nElena' },
+  { from: 'Kenji Sato <kenji@tokyo-imports.jp>', to: 'info@natura-eg.com', subject: 'Price list request – canned beetroot',
+    body: 'Dear Shallaby,\n\nCould you share your 2027 price list for canned beetroot A10 and A12 sizes, including pallet configuration? We plan to place a trial order in January.\n\nBest regards,\nKenji' },
+  { from: 'Hans Müller <hans@edeka-partner.de>', to: 'ali@natura-eg.com', subject: 'Private label strawberry jam – specs',
+    body: 'Dear Ali,\n\nPlease send the technical specification sheet and allergen statement for the private-label strawberry jam before our meeting on Tuesday.\n\nHans' },
+  { from: 'Fatima Zahra <fz@maghrebtrade.ma>', to: 'info@natura-eg.com', subject: 'Partnership enquiry',
+    body: 'Dear Ingy,\n\nWe are a distributor in Morocco interested in becoming a partner for your jalapeño and bell pepper range. Kindly let us know a suitable time for a video call next week.\n\nFatima' }
+];
+
+/* =====================================================================
+   UTILITIES
+   ===================================================================== */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return 'sha256:' + [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function parseAddress(raw) {
+  const m = String(raw || '').match(/^\s*"?([^"<]*)"?\s*<([^>]+)>/);
+  if (m) return { name: m[1].trim() || m[2].trim(), email: m[2].trim().toLowerCase() };
+  return { name: String(raw || '').trim(), email: String(raw || '').trim().toLowerCase() };
+}
+function elapsed(ms) {
+  if (ms < 0) ms = 0;
+  const d = Math.floor(ms / 86400e3), h = Math.floor((ms % 86400e3) / H), m = Math.floor((ms % H) / M);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function fmtTime(t) {
+  const d = new Date(t), today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  return sameDay ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                 : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function initials(name) { return String(name || '?').split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase(); }
+function toast(msg, kind = 'ok') {
+  const el = $('#toast');
+  const bg = kind === 'err' ? 'bg-red-600' : 'bg-natura-900';
+  el.innerHTML = `<div class="${bg} text-white px-5 py-3 rounded-xl shadow-lg font-medium flex items-center gap-2 fade-in"><i data-lucide="${kind === 'err' ? 'alert-circle' : 'check-circle-2'}" class="w-5 h-5"></i>${esc(msg)}</div>`;
+  el.classList.remove('hidden'); icons();
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.add('hidden'), 2600);
+}
+function icons() { if (window.lucide) lucide.createIcons(); }
+const isDone = t => t.status !== 'pending';
+
+/* =====================================================================
+   EMAIL PARSING & ASSIGNMENT ENGINE
+   Priority: (a) "To:" header = a registered personal email
+             (b) greeting in body: "Dear Ali", "Hi Mahmoud", "عزيزي محمد" …
+             (c) otherwise → Unassigned queue (admins assign manually)
+   ===================================================================== */
+const Engine = {
+  aliasesOf(u) {
+    const list = String(u.aliases || '').split(',').map(s => s.trim()).filter(Boolean);
+    list.push(String(u.name || '').split(/\s+/)[0]);
+    return [...new Set(list.map(a => a.toLowerCase()))];
+  },
+  greetingNames(body) {
+    const text = String(body || '').slice(0, 600);
+    const re = /(?:^|\n|\s)(?:dear|hi|hello|hey|good (?:morning|afternoon|evening)|attn:?|attention:?|عزيزي|عزيزتي|الأستاذ|الاستاذ|أستاذ|استاذ|المهندس|م\.)\s+(?:(?:mr|mrs|ms|miss|eng|dr|prof)\.?\s+)?([A-Za-z\u0621-\u064A\u0671-\u06D3]+)(?:\s*(?:,|and|&|و)\s*([A-Za-z\u0621-\u064A\u0671-\u06D3]+))?/gi;
+    const names = []; let m;
+    while ((m = re.exec(text))) { names.push(m[1]); if (m[2]) names.push(m[2]); }
+    return names.map(n => n.toLowerCase());
+  },
+  assign(email, users) {
+    const active = users.filter(u => u.active !== false);
+    const toList = String(email.to || '').split(/[;,]/).map(a => parseAddress(a).email).filter(Boolean);
+    const shared = CONFIG.SHARED_INBOXES.map(s => s.toLowerCase());
+    for (const addr of toList) {
+      if (shared.includes(addr)) continue;
+      const u = active.find(x => String(x.email).toLowerCase() === addr);
+      if (u) return { assignee: u.id, matchedBy: 'To: ' + addr };
+    }
+    for (const n of this.greetingNames(email.body)) {
+      const u = active.find(x => this.aliasesOf(x).includes(n));
+      if (u) return { assignee: u.id, matchedBy: `Greeting: "${n.charAt(0).toUpperCase() + n.slice(1)}"` };
+    }
+    return { assignee: null, matchedBy: 'No match' };
+  }
+};
+
+/* =====================================================================
+   ACTION BRIEF GENERATOR (in-browser fallback)
+   In live mode the backend can supply an AI-written brief (Gemini);
+   this extractive summariser is used whenever no brief is provided.
+   ===================================================================== */
+const Brief = {
+  clean(body) {
+    let lines = String(body || '').split('\n');
+    const stop = lines.findIndex(l => /^\s*(>|-{2,}\s*original|on .+wrote:|from:\s|sent from my|kind regards|best regards|regards,|thanks,|thank you,|best,|cheers,|مع خالص|تحياتي)/i.test(l));
+    if (stop > 0) lines = lines.slice(0, stop);
+    return lines.filter(l => !/^\s*(dear|hi|hello|hey|عزيزي)\b/i.test(l)).join(' ').replace(/\s+/g, ' ').trim();
+  },
+  make(email) {
+    const text = this.clean(email.body);
+    const sentences = text.split(/(?<=[.!?؟])\s+(?=[A-Z\u0600-\u06FF"(])/);
+    const ask = /\b(please|kindly|could you|can you|would you|need|needs|required|require|request|send|share|confirm|approve|review|advise|let us know|provide|update|urgent|asap|deadline|before|by (?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|end)|today|tomorrow)\b/i;
+    const scored = sentences.map((s, i) => ({ s: s.trim(), i, score: (ask.test(s) ? 3 : 0) + (/\d/.test(s) ? 1 : 0) + (i === 0 ? 1 : 0) - (s.length > 260 ? 1 : 0) }))
+                            .filter(x => x.s.length > 12);
+    const top = [...scored].sort((a, b) => b.score - a.score).slice(0, 2).sort((a, b) => a.i - b.i).map(x => x.s);
+    const sender = parseAddress(email.from).name.split(' ')[0] || 'Sender';
+    let brief = top.length ? `${sender}: ${top.join(' ')}` : `${sender} sent an update. No explicit request detected.`;
+    const due = text.match(/\b(today|tomorrow|(?:by|before|on)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(?:st|nd|rd|th)?\s+\w+|\d{1,2}\s*(?:am|pm)|end of \w+))\b/i);
+    if (due) brief += ` ⏱ Due: ${due[0]}.`;
+    if (brief.length > 320) brief = brief.slice(0, 317) + '…';
+    return brief;
+  },
+  urgent(email) { return /\b(urgent|asap|immediately|as soon as possible|today|complaint|claim|missing)\b|عاجل/i.test(email.subject + ' ' + email.body); },
+  needsReply(email) { return !/\b(newsletter|no-?reply|unsubscribe|early bird)\b/i.test(email.from + ' ' + email.subject + ' ' + email.body); }
+};
+
+/* =====================================================================
+   DATA LAYER — Demo (localStorage) or Live (Google Apps Script API)
+   ===================================================================== */
+const LIVE = !!CONFIG.API_URL;
+const LS = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+const Local = {
+  async ensureSeed() {
+    if (LS.get('nat_users') && LS.get('nat_seed_v') === SEED_VERSION) return;
+    const users = [];
+    for (const u of SEED_USERS) users.push({ ...u, id: uid(), password: u.password.startsWith('sha256:') ? u.password : await sha256(u.password) });
+    LS.set('nat_seed_v', SEED_VERSION); LS.set('nat_session', null); if (State) State.session = null;
+    LS.set('nat_users', users);
+    const tasks = seedEmails().map(e => this.buildTask(e, users));
+    const by = u => users.find(x => x.username.toLowerCase() === u.toLowerCase());
+    const due = new Date(); due.setDate(due.getDate() + 1); due.setHours(12, 0, 0, 0);
+    tasks.unshift(this.buildManual({ title: 'Prepare jalapeño samples for Ortofresco',
+      description: `@${by('mohamed ali').name} please prepare 3 jars of the 720ml jalapeño samples for Marco at Ortofresco and send me the courier tracking number.`,
+      creator: by('Ingy'), assignee: by('mohamed ali').id, dueAt: due.toISOString(), createdAt: Date.now() - 50 * M }));
+    tasks.unshift(this.buildManual({ title: 'Update the Q4 shipment tracker',
+      description: `@${by('Ali').name} please add the three Frischmarkt containers to the Q4 shipment tracker once the quotation is accepted.`,
+      creator: by('Shouieb'), assignee: by('Ali').id, createdAt: Date.now() - 3.2 * H }));
+    LS.set('nat_tasks', tasks);
+  },
+  users() { return LS.get('nat_users', []); },
+  tasks() { return LS.get('nat_tasks', []); },
+  buildManual({ title, description, creator, assignee, dueAt = '', urgent = false, createdAt = Date.now() }) {
+    const id = uid();
+    return { id, messageId: 'manual-' + id, source: 'manual', from: '', fromName: creator.name, to: '', subject: title, body: description,
+             receivedAt: new Date(createdAt).toISOString(), assignee, matchedBy: '@mention by ' + creator.name, status: 'pending',
+             brief: description.slice(0, 320), urgent: !!urgent, createdBy: creator.id, createdByName: creator.name, dueAt: dueAt || '',
+             updatedAt: new Date(createdAt).toISOString(), updatedBy: '' };
+  },
+  buildTask(e, users) {
+    const a = Engine.assign(e, users);
+    const fromP = parseAddress(e.from);
+    const status = e.status || (Brief.needsReply(e) ? 'pending' : 'noreply');
+    return { id: uid(), source: 'email', messageId: e.messageId || uid(), from: fromP.email, fromName: fromP.name, to: e.to, subject: e.subject, body: e.body,
+             receivedAt: new Date(e.receivedAt || Date.now()).toISOString(), assignee: a.assignee, matchedBy: a.matchedBy,
+             status, brief: e.brief || Brief.make(e), urgent: Brief.urgent(e),
+             updatedAt: new Date(status !== 'pending' ? (e.receivedAt || Date.now()) : Date.now()).toISOString(), updatedBy: status !== 'pending' ? 'system' : '' };
+  }
+};
+
+const Api = {
+  async call(action, payload = {}) {
+    const res = await fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, token: State.session?.token, ...payload }) });
+    const data = await res.json();
+    if (!data.ok) { if (data.error === 'AUTH') { logout(true); } throw new Error(data.error || 'Request failed'); }
+    return data;
+  },
+  async login(username, password) {
+    if (LIVE) return (await this.call('login', { username, password }));
+    await Local.ensureSeed();
+    const u = Local.users().find(x => x.username.toLowerCase() === username.trim().toLowerCase());
+    if (!u || u.password !== await sha256(password)) throw new Error('Incorrect username or password');
+    if (u.active === false) throw new Error('This account is deactivated. Contact an admin.');
+    const { password: _, ...safe } = u;
+    return { ok: true, token: 'local', user: safe };
+  },
+  async sync() {
+    if (LIVE) return this.call('sync');
+    const me = State.session.user;
+    const users = Local.users().map(({ password, ...u }) => u);
+    const fresh = users.find(u => u.id === me.id);
+    if (!fresh || fresh.active === false) { logout(true); throw new Error('AUTH'); }
+    const all = Local.tasks();
+    return { ok: true, users, tasks: me.role === 'admin' ? all : all.filter(t => t.assignee === me.id || t.createdBy === me.id) };
+  },
+  async setStatus(id, status) {
+    if (LIVE) return this.call('setStatus', { id, status });
+    const tasks = Local.tasks(); const t = tasks.find(x => x.id === id);
+    if (t) { t.status = status; t.updatedAt = new Date().toISOString(); t.updatedBy = State.session.user.name; }
+    LS.set('nat_tasks', tasks);
+  },
+  async createTasks(payload) {               // payload: { title, description, assignees: [userId], dueAt, urgent }
+    if (LIVE) return this.call('createTask', payload);
+    const me = State.session.user; const users = Local.users();
+    const tasks = Local.tasks();
+    payload.assignees.forEach(uid_ => {
+      if (!users.some(u => u.id === uid_ && u.active !== false)) throw new Error('A mentioned member is not active');
+      tasks.unshift(Local.buildManual({ ...payload, creator: me, assignee: uid_ }));
+    });
+    LS.set('nat_tasks', tasks);
+  },
+  async assign(id, userId) {
+    if (LIVE) return this.call('assign', { id, userId });
+    const tasks = Local.tasks(); const t = tasks.find(x => x.id === id);
+    if (t) { t.assignee = userId || null; t.matchedBy = 'Assigned by ' + State.session.user.name; }
+    LS.set('nat_tasks', tasks);
+  },
+  async upsertUser(user) {
+    if (LIVE) return this.call('upsertUser', { user });
+    const users = Local.users();
+    const dupe = users.find(u => u.username.toLowerCase() === user.username.toLowerCase() && u.id !== user.id);
+    if (dupe) throw new Error('Username already exists');
+    const rec = { ...user };
+    if (rec.password) rec.password = await sha256(rec.password); else delete rec.password;
+    const i = users.findIndex(u => u.id === rec.id);
+    if (i >= 0) users[i] = { ...users[i], ...rec }; else users.push({ active: true, ...rec, id: uid() });
+    LS.set('nat_users', users);
+  },
+  async deleteUser(id) {
+    if (LIVE) return this.call('deleteUser', { id });
+    LS.set('nat_users', Local.users().filter(u => u.id !== id));
+    const tasks = Local.tasks(); tasks.forEach(t => { if (t.assignee === id) { t.assignee = null; t.matchedBy = 'Owner removed'; } });
+    LS.set('nat_tasks', tasks);
+  },
+  async importUsers(rows) {
+    if (LIVE) return this.call('importUsers', { rows });
+    for (const r of rows) {
+      const existing = Local.users().find(u => u.username.toLowerCase() === r.username.toLowerCase());
+      await this.upsertUser({ ...r, id: existing?.id });
+    }
+  },
+  async ingestDemo(email) {
+    const tasks = Local.tasks();
+    tasks.unshift(Local.buildTask({ ...email, receivedAt: Date.now() }, Local.users()));
+    LS.set('nat_tasks', tasks);
+  }
+};
+
+/* =====================================================================
+   APP STATE
+   ===================================================================== */
+const State = {
+  session: LS.get('nat_session', null),
+  users: [], tasks: [],
+  view: null, filter: 'todo', search: '', empFilter: 'all', slaFilter: 'all',
+  lastSync: null, syncOk: true, knownIds: null,
+  alertsOn: LS.get('nat_alerts', false), soundOn: LS.get('nat_sound', true)
+};
+const isAdmin = () => State.session?.user?.role === 'admin';
+const userById = id => State.users.find(u => u.id === id);
+
+function slaOf(t, now = Date.now()) {
+  if (isDone(t)) return 'done';
+  if (t.dueAt) {                                   // manual task with a deadline: SLA follows the due time
+    const left = new Date(t.dueAt).getTime() - now;
+    if (left <= 0) return 'red';
+    return left <= CONFIG.SLA_YELLOW_HOURS * H ? 'yellow' : 'green';
+  }
+  const hrs = (now - new Date(t.receivedAt).getTime()) / H;
+  if (hrs >= CONFIG.SLA_RED_HOURS) return 'red';
+  if (hrs >= CONFIG.SLA_YELLOW_HOURS) return 'yellow';
+  return 'green';
+}
+function myTasks() { return State.tasks.filter(t => t.assignee === State.session.user.id); }
+function sentTasks() { const me = State.session.user.id; return State.tasks.filter(t => t.createdBy === me && t.assignee !== me); }
+const isManual = t => t.source === 'manual';
+
+/* =====================================================================
+   SYNC + ALERTS
+   ===================================================================== */
+async function sync(silent = true) {
+  try {
+    const data = await Api.sync();
+    const prevIds = State.knownIds;
+    State.users = data.users || State.users;
+    State.tasks = (data.tasks || []).sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
+    State.lastSync = Date.now(); State.syncOk = true;
+    const relevant = isAdmin() ? State.tasks : myTasks();
+    if (prevIds) {
+      const fresh = relevant.filter(t => !prevIds.has(t.id) && t.status === 'pending');
+      if (fresh.length) notify(`${fresh.length} new task${fresh.length > 1 ? 's' : ''}`, fresh.map(t => isManual(t) ? `@${t.createdByName} assigned you: ${t.subject}` : `${t.fromName}: ${t.subject}`).join('\n'), 'new');
+    }
+    State.knownIds = new Set(relevant.map(t => t.id));
+    const s = State.session.user; const me = State.users.find(u => u.id === s.id);
+    if (me && (me.role !== s.role || me.name !== s.name)) { State.session.user = { ...s, role: me.role, name: me.name, email: me.email }; LS.set('nat_session', State.session); }
+    render();
+    checkOverdueAlerts();
+  } catch (e) {
+    State.syncOk = false; updateSyncBadge();
+    if (!silent && e.message !== 'AUTH') toast('Sync failed: ' + e.message, 'err');
+  }
+}
+let pollTimer, tickTimer;
+function startLoops() {
+  clearInterval(pollTimer); clearInterval(tickTimer);
+  pollTimer = setInterval(() => { if (document.visibilityState === 'visible' || LIVE) sync(); }, CONFIG.POLL_SECONDS * 1000);
+  tickTimer = setInterval(() => { updateTimers(); updateSyncBadge(); }, 20000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+  window.addEventListener('storage', e => { if (e.key === 'nat_tasks' || e.key === 'nat_users') sync(); }); // instant cross-tab sync in demo mode
+}
+function updateTimers() {
+  const now = Date.now();
+  document.querySelectorAll('[data-received]').forEach(el => {
+    const t = State.tasks.find(x => x.id === el.dataset.id); if (!t) return;
+    const sla = slaOf(t, now);
+    el.dataset.sla = sla;
+    const pill = el.querySelector('.sla-pill');
+    if (pill) { pill.dataset.sla = sla; pill.querySelector('span').textContent = slaLabel(t, now); }
+  });
+  checkOverdueAlerts();
+}
+function slaLabel(t, now = Date.now()) {
+  if (t.status === 'replied') return 'Replied';
+  if (t.status === 'completed') return 'Completed';
+  if (t.status === 'noreply') return isManual(t) ? 'Not needed' : 'No reply needed';
+  if (t.dueAt) {
+    const left = new Date(t.dueAt).getTime() - now;
+    return left <= 0 ? `Overdue · ${elapsed(-left)}` : `Due in ${elapsed(left)}`;
+  }
+  const e = elapsed(now - new Date(t.receivedAt).getTime());
+  const s = slaOf(t, now);
+  return s === 'red' ? `Overdue · ${e}` : isManual(t) ? `Open ${e}` : `Waiting ${e}`;
+}
+
+let audioCtx;
+function beep(kind = 'alert') {
+  if (!State.soundOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = kind === 'new' ? [660, 880] : [880, 660, 880];
+    notes.forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination);
+      const t0 = audioCtx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+      o.start(t0); o.stop(t0 + 0.17);
+    });
+  } catch {}
+}
+async function notify(title, body, kind = 'alert') {
+  beep(kind);
+  if (!State.alertsOn || !('Notification' in window) || Notification.permission !== 'granted') { toast(title); return; }
+  const opts = { body, icon: window.__iconPng || CONFIG.LOGO_URL, badge: window.__iconPng, tag: 'natura-' + kind, renotify: true };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) reg.showNotification(title, opts); else new Notification(title, opts);
+  } catch { toast(title); }
+}
+function checkOverdueAlerts() {
+  if (!State.session) return;
+  const key = 'nat_alerted_' + State.session.user.id;
+  const log = LS.get(key, {}); const now = Date.now(); const due = [];
+  const scope = isAdmin() ? State.tasks : myTasks();
+  scope.filter(t => slaOf(t, now) === 'red').forEach(t => {
+    if (!log[t.id] || now - log[t.id] > CONFIG.REMIND_EVERY_MIN * M) { due.push(t); log[t.id] = now; }
+  });
+  LS.set(key, log);
+  if (due.length) notify(`⚠ ${due.length} overdue email${due.length > 1 ? 's' : ''} (>${CONFIG.SLA_RED_HOURS}h)`, due.slice(0, 4).map(t => `${t.fromName}: ${t.subject}`).join('\n'));
+}
+async function toggleAlerts() {
+  if (!State.alertsOn) {
+    if (!('Notification' in window)) { toast('This browser does not support notifications', 'err'); return; }
+    const p = await Notification.requestPermission();
+    if (p !== 'granted') { toast('Notifications blocked in browser settings', 'err'); return; }
+    State.alertsOn = true; beep('new'); toast('Alerts enabled');
+  } else { State.alertsOn = false; toast('Alerts paused'); }
+  LS.set('nat_alerts', State.alertsOn); render();
+}
+
+/* =====================================================================
+   RENDERING — LOGIN
+   ===================================================================== */
+function logoImg(cls = 'w-10 h-10') {
+  return `<img src="${esc(CONFIG.LOGO_URL)}" alt="Natura" class="${cls} object-contain rounded-lg bg-white/95 p-1" onerror="this.outerHTML=leafSvg('${cls}')">`;
+}
+function leafSvg(cls) {
+  return `<div class="${cls} rounded-lg bg-white flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-3/4 h-3/4" fill="none" stroke="#2F7A45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></div>`;
+}
+function renderLogin(error = '') {
+  $('#root').innerHTML = `
+  <div class="min-h-screen hero-bg flex items-center justify-center p-4">
+    <div class="w-full max-w-md fade-in">
+      <div class="text-center text-white mb-8">
+        <div class="inline-flex mb-4">${logoImg('w-20 h-20')}</div>
+        <h1 class="text-3xl font-extrabold tracking-tight">${esc(CONFIG.APP_NAME)}</h1>
+        <p class="text-white/75 mt-1">${esc(CONFIG.TAGLINE)}</p>
+      </div>
+      <form id="loginForm" class="bg-white rounded-2xl shadow-2xl p-7 space-y-5">
+        <div>
+          <label class="block text-sm font-semibold text-natura-900 mb-1.5">Username</label>
+          <div class="relative"><i data-lucide="user" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input name="username" autocomplete="username" required autofocus class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-natura-500 focus:ring-2 focus:ring-natura-leaf/40 outline-none" placeholder="e.g. Ali"></div>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-natura-900 mb-1.5">Password</label>
+          <div class="relative"><i data-lucide="lock" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input name="password" type="password" autocomplete="current-password" required class="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 focus:border-natura-500 focus:ring-2 focus:ring-natura-leaf/40 outline-none" placeholder="••••••••">
+          <button type="button" id="pwToggle" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-natura-700" aria-label="Show password"><i data-lucide="eye" class="w-5 h-5"></i></button></div>
+        </div>
+        ${error ? `<div class="flex items-center gap-2 text-red-700 bg-red-50 rounded-xl px-4 py-3 text-sm"><i data-lucide="alert-circle" class="w-5 h-5 shrink-0"></i>${esc(error)}</div>` : ''}
+        <button class="w-full py-3.5 rounded-xl bg-natura-700 hover:bg-natura-900 text-white font-semibold text-lg flex items-center justify-center gap-2 transition">
+          <i data-lucide="log-in" class="w-5 h-5"></i> Sign in</button>
+        ${!LIVE && CONFIG.SHOW_DEMO_ACCOUNTS ? `
+        <div class="text-xs text-gray-500 bg-natura-cream rounded-xl p-3 leading-relaxed">
+          <div class="font-semibold text-natura-900 mb-1">Demo mode — sign in with your team-sheet login</div>
+          Admins: <b>Ingy</b>, <b>Shouieb</b>, <b>Hamed</b> · Team: <b>Ali</b>, <b>Mohamed ali</b>, <b>Shallaby</b>, <b>Youssef</b>
+        </div>` : ''}
+      </form>
+      <p class="text-center text-white/60 text-xs mt-6">© ${new Date().getFullYear()} ${esc(CONFIG.COMPANY)} · Internal use only</p>
+    </div>
+  </div>`;
+  icons();
+  $('#pwToggle').onclick = () => { const i = $('#loginForm [name=password]'); i.type = i.type === 'password' ? 'text' : 'password'; };
+  $('#loginForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target); const btn = e.target.querySelector('button:last-of-type');
+    btn.disabled = true; btn.innerHTML = 'Signing in…';
+    try {
+      const r = await Api.login(f.get('username'), f.get('password'));
+      State.session = { token: r.token, user: r.user }; LS.set('nat_session', State.session);
+      State.view = r.user.role === 'admin' ? 'overview' : 'mine';
+      await boot();
+    } catch (err) { renderLogin(err.message); }
+  };
+}
+function logout(expired = false) {
+  State.session = null; State.knownIds = null; LS.set('nat_session', null);
+  clearInterval(pollTimer); clearInterval(tickTimer);
+  renderLogin(expired ? 'Your session ended. Please sign in again.' : '');
+}
+
+/* =====================================================================
+   RENDERING — APP SHELL
+   ===================================================================== */
+function navItems() {
+  const mineCount = myTasks().filter(t => t.status === 'pending').length;
+  if (!isAdmin()) return [{ id: 'mine', label: 'My Tasks', icon: 'inbox', badge: mineCount }];
+  const unassigned = State.tasks.filter(t => !t.assignee && t.status === 'pending').length;
+  return [
+    { id: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+    { id: 'all', label: 'All Tasks', icon: 'list-checks', badge: unassigned ? unassigned : 0, badgeTitle: 'unassigned' },
+    { id: 'mine', label: 'My Tasks', icon: 'inbox', badge: mineCount },
+    { id: 'team', label: 'Team', icon: 'users' }
+  ];
+}
+function render() {
+  if (!State.session) return renderLogin();
+  if (document.querySelector('#modal-root .modal-open')) return; // don't disrupt open dialogs
+  const active = document.activeElement;
+  const keepSearch = active && active.id === 'searchBox' ? { pos: active.selectionStart } : null;
+  const u = State.session.user;
+  const nav = navItems();
+  $('#root').innerHTML = `
+  <header class="sticky top-0 z-40 hero-bg text-white shadow">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center gap-3">
+      ${logoImg('w-10 h-10')}
+      <div class="leading-tight mr-auto min-w-0">
+        <div class="font-display font-bold text-lg truncate"><span class="hidden sm:inline">${esc(CONFIG.APP_NAME)}</span><span class="sm:hidden">Natura Tasks</span></div>
+        <div id="syncBadge" class="text-xs text-white/75 flex items-center gap-1.5 whitespace-nowrap"></div>
+      </div>
+      <nav class="hidden md:flex items-center gap-1 bg-white/10 rounded-xl p-1">
+        ${nav.map(n => `<button data-nav="${n.id}" class="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${State.view === n.id ? 'bg-white text-natura-900' : 'hover:bg-white/10'}">
+          <i data-lucide="${n.icon}" class="w-4 h-4"></i>${n.label}${n.badge ? `<span class="ml-1 text-xs bg-natura-harvest text-natura-900 rounded-full px-2 py-0.5">${n.badge}</span>` : ''}</button>`).join('')}
+      </nav>
+      <button data-new-task class="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-natura-harvest hover:brightness-105 text-natura-900 font-bold text-sm shadow-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i>New task</button>
+      <button id="alertBtn" title="${State.alertsOn ? 'Alerts on' : 'Enable alerts'}" class="p-2.5 rounded-xl hover:bg-white/10 relative">
+        <i data-lucide="${State.alertsOn ? 'bell-ring' : 'bell-off'}" class="w-5 h-5"></i></button>
+      <button id="refreshBtn" title="Sync now" class="p-2.5 rounded-xl hover:bg-white/10"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+      <div class="relative">
+        <button id="userBtn" class="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-white/10">
+          <span class="w-9 h-9 rounded-full bg-natura-harvest text-natura-900 font-bold flex items-center justify-center">${esc(initials(u.name))}</span>
+          <span class="hidden lg:block text-sm text-left leading-tight"><b>${esc(u.name)}</b><br><span class="text-white/70 text-xs">${u.role === 'admin' ? 'Administrator' : 'Team member'}</span></span>
+        </button>
+        <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-white text-natura-ink rounded-xl shadow-xl p-2 z-50">
+          <div class="px-3 py-2 text-sm"><b>${esc(u.name)}</b><div class="text-gray-500 text-xs truncate">${esc(u.email)}</div></div>
+          <button id="soundBtn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 text-sm flex items-center gap-2"><i data-lucide="${State.soundOn ? 'volume-2' : 'volume-x'}" class="w-4 h-4"></i>Sound ${State.soundOn ? 'on' : 'off'}</button>
+          <button id="installBtn" class="${window.__installPrompt ? '' : 'hidden'} w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 text-sm flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i>Install app</button>
+          <button id="logoutBtn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-red-700 text-sm flex items-center gap-2"><i data-lucide="log-out" class="w-4 h-4"></i>Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 pt-6 ${nav.length < 2 ? 'pb-10' : 'pb-28'} md:pb-10" id="view">${renderView()}</main>
+
+  <button data-new-task aria-label="New task" class="md:hidden fixed right-4 ${nav.length < 2 ? 'bottom-6' : 'bottom-24'} z-40 w-14 h-14 rounded-2xl bg-natura-harvest text-natura-900 shadow-lg flex items-center justify-center active:scale-95 transition">
+    <i data-lucide="plus" class="w-7 h-7"></i></button>
+
+  <nav class="${nav.length < 2 ? 'hidden' : 'md:hidden'} fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 safe-bottom">
+    <div class="grid" style="grid-template-columns: repeat(${nav.length}, 1fr)">
+      ${nav.map(n => `<button data-nav="${n.id}" class="py-2.5 flex flex-col items-center gap-0.5 text-xs font-semibold relative ${State.view === n.id ? 'text-natura-700' : 'text-gray-500'}">
+        <i data-lucide="${n.icon}" class="w-6 h-6"></i>${n.label}
+        ${n.badge ? `<span class="absolute top-1 left-1/2 ml-2 text-[10px] bg-natura-harvest text-natura-900 rounded-full px-1.5">${n.badge}</span>` : ''}</button>`).join('')}
+    </div>
+  </nav>`;
+  bindShell(); bindView(); icons(); updateSyncBadge();
+  if (keepSearch) { const s = $('#searchBox'); if (s) { s.focus(); s.setSelectionRange(keepSearch.pos, keepSearch.pos); } }
+}
+function updateSyncBadge() {
+  const el = $('#syncBadge'); if (!el) return;
+  const ago = State.lastSync ? elapsed(Date.now() - State.lastSync) : '—';
+  el.innerHTML = State.syncOk
+    ? `<span class="w-2 h-2 rounded-full bg-natura-leaf animate-pulse"></span>${LIVE ? 'Live' : 'Demo'} · synced ${ago === '0m' ? 'just now' : ago + ' ago'}`
+    : `<span class="w-2 h-2 rounded-full bg-red-400"></span>Offline · retrying`;
+}
+function bindShell() {
+  document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { State.view = b.dataset.nav; State.filter = 'todo'; render(); window.scrollTo(0, 0); });
+  $('#alertBtn').onclick = toggleAlerts;
+  document.querySelectorAll('[data-new-task]').forEach(b => b.onclick = () => taskComposer());
+  $('#refreshBtn').onclick = async () => { $('#refreshBtn').classList.add('animate-spin'); await sync(false); toast('Up to date'); };
+  $('#userBtn').onclick = e => { e.stopPropagation(); $('#userMenu').classList.toggle('hidden'); };
+  document.onclick = () => $('#userMenu')?.classList.add('hidden');
+  $('#logoutBtn').onclick = () => logout();
+  $('#soundBtn').onclick = () => { State.soundOn = !State.soundOn; LS.set('nat_sound', State.soundOn); render(); };
+  $('#installBtn').onclick = async () => { const p = window.__installPrompt; if (p) { p.prompt(); await p.userChoice; window.__installPrompt = null; render(); } };
+}
+
+/* =====================================================================
+   VIEWS
+   ===================================================================== */
+function renderView() {
+  switch (State.view) {
+    case 'overview': return isAdmin() ? viewOverview() : viewMine();
+    case 'all': return isAdmin() ? viewAll() : viewMine();
+    case 'team': return isAdmin() ? viewTeam() : viewMine();
+    default: return viewMine();
+  }
+}
+function bindView() {
+  document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { State.filter = b.dataset.filter; render(); });
+  const sb = $('#searchBox'); if (sb) sb.oninput = e => { State.search = e.target.value; render(); };
+  const ef = $('#empFilter'); if (ef) ef.onchange = e => { State.empFilter = e.target.value; render(); };
+  const sf = $('#slaFilter'); if (sf) sf.onchange = e => { State.slaFilter = e.target.value; render(); };
+  document.querySelectorAll('[data-status]').forEach(b => b.onclick = async () => {
+    const id = b.closest('[data-id]').dataset.id, status = b.dataset.status;
+    const t = State.tasks.find(x => x.id === id); const prev = t.status;
+    t.status = status; t.updatedBy = State.session.user.name; render();       // optimistic
+    try { await Api.setStatus(id, status); toast(status === 'pending' ? 'Task reopened' : 'Marked as ' + statusName(status, t)); sync(); }
+    catch (e) { t.status = prev; render(); toast(e.message, 'err'); }
+  });
+  document.querySelectorAll('[data-reply]').forEach(b => b.onclick = () => openReply(b.closest('[data-id]').dataset.id, b.dataset.reply));
+  document.querySelectorAll('[data-expand]').forEach(b => b.onclick = () => {
+    const body = b.closest('[data-id]').querySelector('.full-body'); body.classList.toggle('hidden');
+    b.querySelector('span').textContent = body.classList.contains('hidden') ? 'Show full email' : 'Hide email';
+  });
+  document.querySelectorAll('[data-assign]').forEach(s => s.onchange = async () => {
+    try { await Api.assign(s.dataset.assign, s.value); toast(s.value ? 'Task assigned to ' + userById(s.value)?.name : 'Task unassigned'); sync(); }
+    catch (e) { toast(e.message, 'err'); }
+  });
+  document.querySelectorAll('[data-open-emp]').forEach(r => r.onclick = () => { State.view = 'all'; State.empFilter = r.dataset.openEmp; State.filter = 'todo'; render(); });
+  const sim = $('#simulateBtn'); if (sim) sim.onclick = async () => {
+    const e = DEMO_INCOMING[Math.floor(Math.random() * DEMO_INCOMING.length)];
+    await Api.ingestDemo(e); await sync(); toast('New email received & auto-assigned');
+  };
+  bindTeam();
+}
+const statusName = (s, t) => (t && isManual(t) ? { pending: 'Open', completed: 'Done', noreply: 'Not needed', replied: 'Replied' }
+                                              : { pending: 'Pending reply', replied: 'Replied', completed: 'Completed', noreply: 'No reply needed' })[s] || s;
+
+function filterTasks(list) {
+  const q = State.search.trim().toLowerCase();
+  return list.filter(t => {
+    if ((State.filter === 'todo' || State.filter === 'sent') && isDone(t)) return false;
+    if (State.filter === 'done' && !isDone(t)) return false;
+    if (State.filter === 'overdue' && slaOf(t) !== 'red') return false;
+    if (q && !(t.subject + ' ' + t.fromName + ' ' + t.from + ' ' + t.brief + ' ' + t.body + ' ' + (t.createdByName || '') + ' ' + (userById(t.assignee)?.name || '')).toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b) => {
+    const order = { red: 0, yellow: 1, green: 2, done: 3 };
+    const d = order[slaOf(a)] - order[slaOf(b)];
+    return d || (isDone(a) ? new Date(b.receivedAt) - new Date(a.receivedAt) : new Date(a.receivedAt) - new Date(b.receivedAt));
+  });
+}
+function filterBar(list, extra = '', sent = null) {
+  const c = { todo: list.filter(t => !isDone(t)).length, overdue: list.filter(t => slaOf(t) === 'red').length, done: list.filter(isDone).length, all: list.length,
+              sent: sent ? sent.filter(t => !isDone(t)).length : 0 };
+  const tabs = [['todo', 'To do', 'circle-dot'], ['overdue', 'Overdue', 'alarm-clock'], ['done', 'Done', 'check-check'], ['all', 'All', 'layers']];
+  if (sent) tabs.push(['sent', 'Assigned by me', 'send']);
+  return `
+  <div class="flex flex-col lg:flex-row gap-3 lg:items-center mb-5">
+    <div class="flex gap-1 bg-white rounded-xl p-1 shadow-sm overflow-x-auto scroll-thin">
+      ${tabs.map(([id, label, ic]) => `<button data-filter="${id}" class="px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap flex items-center gap-2 ${State.filter === id ? 'tab-active' : 'text-gray-600 hover:bg-gray-100'}">
+        <i data-lucide="${ic}" class="w-4 h-4"></i>${label}<span class="text-xs opacity-75">${c[id]}</span></button>`).join('')}
+    </div>
+    ${extra}
+    <div class="relative lg:ml-auto lg:w-72">
+      <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      <input id="searchBox" value="${esc(State.search)}" placeholder="Search emails…" class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white shadow-sm border border-transparent focus:border-natura-500 outline-none">
+    </div>
+  </div>`;
+}
+function taskCard(t, opts = {}) {
+  const sla = slaOf(t); const owner = userById(t.assignee);
+  const pending = t.status === 'pending';
+  const manual = isManual(t);
+  const actorOpts = State.users.filter(u => u.active !== false).map(u => `<option value="${u.id}" ${u.id === t.assignee ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
+  return `
+  <article class="task-card bg-white rounded-2xl shadow-sm p-5 fade-in" data-id="${t.id}" data-received="${esc(t.receivedAt)}" data-sla="${sla}">
+    <div class="flex items-start gap-3">
+      <div class="w-11 h-11 rounded-full bg-natura-sand text-natura-700 font-bold flex items-center justify-center shrink-0">${esc(initials(t.fromName))}</div>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="font-semibold text-natura-900 truncate">${esc(t.fromName)}</span>
+          ${manual ? '<span class="text-[11px] font-bold uppercase tracking-wide bg-natura-harvest/25 text-orange-900 rounded px-1.5 py-0.5 flex items-center gap-1"><i data-lucide="at-sign" class="w-3 h-3"></i>Manual task</span>' : ''}
+          ${t.urgent && pending ? '<span class="text-[11px] font-bold uppercase tracking-wide bg-red-600 text-white rounded px-1.5 py-0.5">Urgent</span>' : ''}
+          <span class="text-xs text-gray-500">${fmtTime(t.receivedAt)}</span>
+        </div>
+        <h3 class="font-display font-bold text-[17px] leading-snug mt-0.5">${esc(t.subject)}</h3>
+      </div>
+      <div class="sla-pill shrink-0 text-xs font-bold rounded-full px-3 py-1.5 flex items-center gap-1.5" data-sla="${sla}">
+        <i data-lucide="${pending ? 'clock' : 'check'}" class="w-3.5 h-3.5"></i><span>${slaLabel(t)}</span></div>
+    </div>
+
+    ${manual ? `
+    <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+      <span class="flex items-center gap-1.5 bg-gray-50 rounded-full pl-1 pr-3 py-1"><span class="w-6 h-6 rounded-full bg-natura-sand text-natura-700 text-[10px] font-bold flex items-center justify-center">${esc(initials(t.createdByName))}</span><span class="text-gray-500">Created by</span><b>${esc(t.createdByName)}</b></span>
+      <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+      <span class="flex items-center gap-1.5 bg-natura-cream rounded-full pl-1 pr-3 py-1"><span class="w-6 h-6 rounded-full bg-natura-700 text-white text-[10px] font-bold flex items-center justify-center">${esc(initials(owner?.name || '?'))}</span><span class="text-gray-500">Assigned to</span><b>${esc(owner?.name || 'Unassigned')}</b></span>
+      ${t.dueAt ? `<span class="flex items-center gap-1 text-gray-600"><i data-lucide="calendar-clock" class="w-4 h-4"></i>Due ${fmtTime(t.dueAt)}</span>` : ''}
+    </div>
+    <div class="mt-3 rounded-xl bg-gradient-to-br from-natura-cream to-white border border-natura-sand p-4">
+      <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-natura-500 mb-1"><i data-lucide="clipboard-list" class="w-4 h-4"></i>Task details</div>
+      <p class="text-[15px] leading-relaxed whitespace-pre-wrap">${renderMentions(t.body)}</p>
+    </div>` : `
+    <div class="mt-4 rounded-xl bg-gradient-to-br from-natura-cream to-white border border-natura-sand p-4">
+      <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-natura-500 mb-1"><i data-lucide="sparkles" class="w-4 h-4"></i>Action brief</div>
+      <p class="text-[15px] leading-relaxed">${esc(t.brief)}</p>
+    </div>`}
+
+    <div class="full-body hidden mt-3 text-sm whitespace-pre-wrap bg-gray-50 rounded-xl p-4 text-gray-700 border border-gray-100"><div class="text-xs text-gray-500 mb-2">From: ${esc(t.from)}<br>To: ${esc(t.to)}</div>${esc(t.body)}</div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-gray-500">
+      ${manual ? '' : '<button data-expand class="flex items-center gap-1 font-semibold text-natura-700 hover:underline"><i data-lucide="mail-open" class="w-4 h-4"></i><span>Show full email</span></button>'}
+      ${opts.showOwner ? `<span class="flex items-center gap-1"><i data-lucide="user-check" class="w-4 h-4"></i>
+        <select data-assign="${t.id}" class="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white ${owner ? '' : 'border-natura-harvest text-amber-800 font-semibold'}">
+          <option value="">— Unassigned —</option>${actorOpts}</select></span>` : ''}
+      ${manual ? `<span class="flex items-center gap-1"><i data-lucide="clock-3" class="w-4 h-4"></i>Created ${fmtTime(t.receivedAt)}</span>` : `<span class="flex items-center gap-1" title="How the system routed this email"><i data-lucide="route" class="w-4 h-4"></i>${esc(t.matchedBy)}</span>`}
+      ${!pending && t.updatedBy ? `<span class="flex items-center gap-1"><i data-lucide="history" class="w-4 h-4"></i>${esc(statusName(t.status, t))} by ${esc(t.updatedBy)}</span>` : ''}
+    </div>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+      ${pending && manual ? `
+        <button data-status="completed" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-natura-700 hover:bg-natura-900 text-white font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="badge-check" class="w-4 h-4"></i>Mark done</button>
+        <button data-status="noreply" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="circle-slash" class="w-4 h-4"></i>Not needed</button>`
+      : pending ? `
+        <button data-reply="compose" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-natura-700 hover:bg-natura-900 text-white font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="reply" class="w-4 h-4"></i>Reply</button>
+        <button data-status="replied" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>Replied</button>
+        <button data-status="completed" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="badge-check" class="w-4 h-4"></i>Completed</button>
+        <button data-status="noreply" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm flex items-center justify-center gap-2"><i data-lucide="mail-x" class="w-4 h-4"></i>No reply needed</button>
+        <button data-reply="webmail" title="Open ${CONFIG.WEBMAIL === 'outlook' ? 'Outlook' : 'Zoho Mail'}" class="px-3 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm flex items-center gap-2"><i data-lucide="external-link" class="w-4 h-4"></i><span class="hidden sm:inline">${CONFIG.WEBMAIL === 'outlook' ? 'Outlook' : 'Zoho'}</span></button>`
+      : `<button data-status="pending" class="px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm flex items-center gap-2"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Reopen</button>`}
+    </div>
+  </article>`;
+}
+function emptyState(title, sub, icon = 'party-popper') {
+  return `<div class="bg-white rounded-2xl shadow-sm p-10 text-center col-span-full"><div class="w-16 h-16 mx-auto rounded-full bg-natura-cream flex items-center justify-center mb-3"><i data-lucide="${icon}" class="w-8 h-8 text-natura-500"></i></div>
+    <h3 class="font-display font-bold text-lg">${title}</h3><p class="text-gray-500 mt-1">${sub}</p></div>`;
+}
+function statCard(label, value, icon, tone = 'natura', sub = '') {
+  const tones = { natura: 'bg-natura-cream text-natura-700', red: 'bg-red-50 text-red-700', yellow: 'bg-amber-50 text-amber-700', green: 'bg-emerald-50 text-emerald-700', harvest: 'bg-orange-50 text-orange-700' };
+  return `<div class="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
+    <div class="w-12 h-12 rounded-xl flex items-center justify-center ${tones[tone]}"><i data-lucide="${icon}" class="w-6 h-6"></i></div>
+    <div><div class="text-3xl font-display font-extrabold leading-none">${value}</div><div class="text-sm text-gray-500 mt-1">${label}${sub ? ` <span class="text-xs">${sub}</span>` : ''}</div></div></div>`;
+}
+function demoBar() {
+  return LIVE ? '' : `<div class="mb-5 flex flex-wrap items-center gap-3 bg-natura-harvest/15 border border-natura-harvest/40 rounded-xl px-4 py-3 text-sm">
+    <i data-lucide="flask-conical" class="w-5 h-5 text-orange-700"></i><span class="text-natura-ink"><b>Demo mode:</b> data lives in this browser. Add your API URL in CONFIG for live, shared data.</span>
+    <button id="simulateBtn" class="ml-auto px-3 py-1.5 rounded-lg bg-natura-700 text-white font-semibold flex items-center gap-1.5"><i data-lucide="mail-plus" class="w-4 h-4"></i>Simulate incoming email</button></div>`;
+}
+
+/* ---- Employee / personal view ---- */
+function viewMine() {
+  const mine = myTasks(); const sent = sentTasks();
+  const list = filterTasks(State.filter === 'sent' ? sent : mine);
+  const u = State.session.user;
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const red = mine.filter(t => slaOf(t) === 'red').length, yellow = mine.filter(t => slaOf(t) === 'yellow').length;
+  const doneToday = mine.filter(t => isDone(t) && new Date(t.updatedAt).toDateString() === new Date().toDateString()).length;
+  return `
+  ${demoBar()}
+  <section class="mb-6">
+    <h1 class="text-2xl md:text-3xl font-extrabold text-natura-900">${greet}, ${esc(u.name.split(' ')[0])} 👋</h1>
+    <p class="text-gray-600 mt-1">${red ? `<b class="text-red-700">${red} email${red > 1 ? 's are' : ' is'} overdue</b> — please reply first.` : mine.some(t => !isDone(t)) ? 'You are on track. Keep it up!' : 'Inbox zero — nothing waiting for you.'}</p>
+  </section>
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    ${statCard('Waiting for reply', mine.filter(t => !isDone(t)).length, 'inbox')}
+    ${statCard('Overdue', red, 'alarm-clock', 'red', `>${CONFIG.SLA_RED_HOURS}h`)}
+    ${statCard('Needs attention', yellow, 'hourglass', 'yellow', `${CONFIG.SLA_YELLOW_HOURS}–${CONFIG.SLA_RED_HOURS}h`)}
+    ${statCard('Done today', doneToday, 'check-check', 'green')}
+  </section>
+  ${filterBar(mine, '', sent)}
+  <section class="grid gap-4 lg:grid-cols-2">
+    ${list.length ? list.map(t => taskCard(t, { sent: State.filter === 'sent' })).join('')
+      : State.filter === 'sent' ? emptyState('You haven\'t assigned anything yet', 'Tap “New task” and type @ to hand a task to a teammate.', 'at-sign')
+      : emptyState(State.filter === 'todo' ? 'All caught up!' : 'Nothing here', State.filter === 'todo' ? 'New emails addressed to you — and tasks teammates @mention you in — appear here automatically.' : 'Try another filter.')}
+  </section>`;
+}
+
+/* ---- Admin overview ---- */
+function viewOverview() {
+  const all = State.tasks; const now = Date.now();
+  const open = all.filter(t => !isDone(t));
+  const red = open.filter(t => slaOf(t, now) === 'red'), yellow = open.filter(t => slaOf(t, now) === 'yellow');
+  const unassigned = open.filter(t => !t.assignee);
+  const today = new Date().toDateString();
+  const doneToday = all.filter(t => isDone(t) && new Date(t.updatedAt).toDateString() === today).length;
+  const team = State.users.filter(u => u.active !== false).map(u => {
+    const mine = all.filter(t => t.assignee === u.id), o = mine.filter(t => !isDone(t));
+    const oldest = o.reduce((m, t) => Math.min(m, new Date(t.receivedAt).getTime()), Infinity);
+    return { u, open: o.length, red: o.filter(t => slaOf(t, now) === 'red').length, yellow: o.filter(t => slaOf(t, now) === 'yellow').length,
+             green: o.filter(t => slaOf(t, now) === 'green').length, done: mine.filter(t => isDone(t) && new Date(t.updatedAt).toDateString() === today).length,
+             oldest: isFinite(oldest) ? now - oldest : null, total: mine.length };
+  }).sort((a, b) => b.red - a.red || b.open - a.open);
+  const maxOpen = Math.max(1, ...team.map(x => x.open));
+  const replyRate = all.length ? Math.round(all.filter(isDone).length / all.length * 100) : 100;
+
+  return `
+  ${demoBar()}
+  <section class="mb-6 flex flex-wrap items-end gap-3">
+    <div><h1 class="text-2xl md:text-3xl font-extrabold text-natura-900">Team overview</h1>
+    <p class="text-gray-600 mt-1">Live 360° view of every inbox task across the team.</p></div>
+  </section>
+  <section class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+    ${statCard('Open tasks', open.length, 'inbox')}
+    ${statCard('Overdue', red.length, 'siren', 'red', `>${CONFIG.SLA_RED_HOURS}h`)}
+    ${statCard('Needs attention', yellow.length, 'hourglass', 'yellow')}
+    ${statCard('Unassigned', unassigned.length, 'help-circle', 'harvest')}
+    ${statCard('Handled rate', replyRate + '%', 'trending-up', 'green', `· ${doneToday} today`)}
+  </section>
+
+  <div class="grid lg:grid-cols-5 gap-6">
+    <section class="lg:col-span-3 bg-white rounded-2xl shadow-sm p-5">
+      <div class="flex items-center justify-between mb-4"><h2 class="font-display font-bold text-lg">Workload by team member</h2><span class="text-xs text-gray-500">Click a row to see tasks</span></div>
+      <div class="overflow-x-auto scroll-thin">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-gray-500 text-xs uppercase tracking-wide"><th class="pb-2 font-semibold">Member</th><th class="pb-2 font-semibold">Open load</th><th class="pb-2 font-semibold text-center">🔴</th><th class="pb-2 font-semibold text-center">🟡</th><th class="pb-2 font-semibold text-center">🟢</th><th class="pb-2 font-semibold text-center">Done today</th><th class="pb-2 font-semibold">Oldest waiting</th></tr></thead>
+        <tbody>
+        ${team.map(x => `<tr data-open-emp="${x.u.id}" class="border-t border-gray-100 hover:bg-natura-cream/60 cursor-pointer">
+          <td class="py-3 pr-3"><div class="flex items-center gap-2"><span class="w-8 h-8 rounded-full bg-natura-sand text-natura-700 text-xs font-bold flex items-center justify-center">${esc(initials(x.u.name))}</span><div><div class="font-semibold">${esc(x.u.name)}</div><div class="text-xs text-gray-500">${x.u.role === 'admin' ? 'Admin' : 'Team'}</div></div></div></td>
+          <td class="py-3 pr-3 min-w-[140px]"><div class="flex items-center gap-2"><div class="h-2.5 flex-1 rounded-full bg-gray-100 overflow-hidden flex">
+            <div style="width:${x.red / maxOpen * 100}%" class="bg-red-500"></div><div style="width:${x.yellow / maxOpen * 100}%" class="bg-amber-400"></div><div style="width:${x.green / maxOpen * 100}%" class="bg-emerald-500"></div></div><b>${x.open}</b></div></td>
+          <td class="py-3 text-center font-semibold ${x.red ? 'text-red-600' : 'text-gray-300'}">${x.red}</td>
+          <td class="py-3 text-center font-semibold ${x.yellow ? 'text-amber-600' : 'text-gray-300'}">${x.yellow}</td>
+          <td class="py-3 text-center font-semibold ${x.green ? 'text-emerald-600' : 'text-gray-300'}">${x.green}</td>
+          <td class="py-3 text-center">${x.done}</td>
+          <td class="py-3 ${x.oldest > CONFIG.SLA_RED_HOURS * H ? 'text-red-600 font-semibold' : 'text-gray-600'}">${x.oldest != null ? elapsed(x.oldest) : '—'}</td></tr>`).join('')}
+        </tbody></table></div>
+    </section>
+
+    <section class="lg:col-span-2 bg-white rounded-2xl shadow-sm p-5">
+      <h2 class="font-display font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="siren" class="w-5 h-5 text-red-600"></i>Overdue & unreplied</h2>
+      ${red.length ? `<ul class="space-y-2">${red.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt)).slice(0, 8).map(t => `
+        <li class="task-card rounded-xl bg-red-50/50 p-3" data-id="${t.id}" data-received="${esc(t.receivedAt)}" data-sla="red">
+          <div class="flex items-center justify-between gap-2"><span class="font-semibold text-sm truncate">${esc(t.subject)}</span>
+          <span class="sla-pill text-[11px] font-bold rounded-full px-2 py-1 shrink-0" data-sla="red"><span>${slaLabel(t)}</span></span></div>
+          <div class="text-xs text-gray-600 mt-1">${esc(t.fromName)} → <b>${esc(userById(t.assignee)?.name || 'Unassigned')}</b></div></li>`).join('')}</ul>`
+        : `<div class="text-center py-8 text-gray-500"><i data-lucide="shield-check" class="w-10 h-10 mx-auto text-emerald-500 mb-2"></i>No overdue emails. Great work, team!</div>`}
+    </section>
+  </div>
+
+  ${unassigned.length ? `
+  <section class="mt-6">
+    <h2 class="font-display font-bold text-lg mb-3 flex items-center gap-2"><i data-lucide="help-circle" class="w-5 h-5 text-orange-600"></i>Unassigned queue <span class="text-sm font-normal text-gray-500">— no "To:" or greeting match; pick an owner</span></h2>
+    <div class="grid gap-4 lg:grid-cols-2">${unassigned.map(t => taskCard(t, { showOwner: true })).join('')}</div>
+  </section>` : ''}`;
+}
+
+/* ---- Admin: all tasks ---- */
+function viewAll() {
+  let list = State.tasks;
+  if (State.empFilter === 'unassigned') list = list.filter(t => !t.assignee);
+  else if (State.empFilter !== 'all') list = list.filter(t => t.assignee === State.empFilter);
+  const shown = filterTasks(list);
+  const extra = `<select id="empFilter" class="px-3 py-2.5 rounded-xl bg-white shadow-sm border border-transparent text-sm font-semibold">
+      <option value="all">Everyone</option><option value="unassigned" ${State.empFilter === 'unassigned' ? 'selected' : ''}>Unassigned</option>
+      ${State.users.map(u => `<option value="${u.id}" ${State.empFilter === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>`;
+  return `${demoBar()}
+  <h1 class="text-2xl md:text-3xl font-extrabold text-natura-900 mb-1">All tasks</h1>
+  <p class="text-gray-600 mb-5">Every email the system has routed. Reassign any task from its card.</p>
+  ${filterBar(list, extra)}
+  <section class="grid gap-4 lg:grid-cols-2">${shown.length ? shown.map(t => taskCard(t, { showOwner: true })).join('') : emptyState('No tasks match', 'Try a different person or filter.', 'search-x')}</section>`;
+}
+
+/* ---- Admin: team management ---- */
+function viewTeam() {
+  const users = [...State.users].sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'admin' ? -1 : 1));
+  return `
+  <div class="flex flex-wrap items-end gap-3 mb-5">
+    <div class="mr-auto"><h1 class="text-2xl md:text-3xl font-extrabold text-natura-900">Team members</h1>
+    <p class="text-gray-600 mt-1">Add, deactivate or remove users. Aliases are the names people use in greetings ("Dear Engy").</p></div>
+    <button id="importBtn" class="px-4 py-2.5 rounded-xl bg-white shadow-sm font-semibold text-sm flex items-center gap-2 hover:bg-gray-50"><i data-lucide="file-spreadsheet" class="w-4 h-4 text-natura-500"></i>Import Excel / CSV</button>
+    <button id="exportBtn" class="px-4 py-2.5 rounded-xl bg-white shadow-sm font-semibold text-sm flex items-center gap-2 hover:bg-gray-50"><i data-lucide="download" class="w-4 h-4"></i>Template / export</button>
+    <button id="addUserBtn" class="px-4 py-2.5 rounded-xl bg-natura-700 hover:bg-natura-900 text-white font-semibold text-sm flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i>Add member</button>
+    <input id="importFile" type="file" accept=".xlsx,.xls,.csv" class="hidden">
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm overflow-x-auto scroll-thin">
+    <table class="w-full text-sm">
+      <thead class="bg-natura-cream/70"><tr class="text-left text-xs uppercase tracking-wide text-gray-500">
+        <th class="px-5 py-3">Name</th><th class="px-3 py-3">Username</th><th class="px-3 py-3">Email</th><th class="px-3 py-3">Role</th><th class="px-3 py-3">Greeting aliases</th><th class="px-3 py-3">Status</th><th class="px-5 py-3 text-right">Actions</th></tr></thead>
+      <tbody>${users.map(u => `
+        <tr class="border-t border-gray-100 ${u.active === false ? 'opacity-50' : ''}" data-uid="${u.id}">
+          <td class="px-5 py-3"><div class="flex items-center gap-2"><span class="w-8 h-8 rounded-full bg-natura-sand text-natura-700 text-xs font-bold flex items-center justify-center">${esc(initials(u.name))}</span><b>${esc(u.name)}</b></div></td>
+          <td class="px-3 py-3 font-mono text-xs">${esc(u.username)}</td>
+          <td class="px-3 py-3">${esc(u.email)}</td>
+          <td class="px-3 py-3"><span class="text-xs font-semibold rounded-full px-2.5 py-1 ${u.role === 'admin' ? 'bg-natura-700 text-white' : 'bg-gray-100 text-gray-700'}">${u.role === 'admin' ? 'Admin' : 'Employee'}</span></td>
+          <td class="px-3 py-3 text-xs text-gray-600 max-w-[220px]">${esc(u.aliases || '')}</td>
+          <td class="px-3 py-3">${u.active === false ? '<span class="text-xs text-gray-500">Deactivated</span>' : '<span class="text-xs text-emerald-700 font-semibold">Active</span>'}</td>
+          <td class="px-5 py-3"><div class="flex justify-end gap-1">
+            <button data-mention-user title="Assign a task to ${esc(u.name)}" class="p-2 rounded-lg hover:bg-natura-cream text-natura-700 ${u.active === false ? 'hidden' : ''}"><i data-lucide="at-sign" class="w-4 h-4"></i></button>
+            <button data-edit-user title="Edit" class="p-2 rounded-lg hover:bg-gray-100"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button data-toggle-user title="${u.active === false ? 'Reactivate' : 'Deactivate'}" class="p-2 rounded-lg hover:bg-gray-100"><i data-lucide="${u.active === false ? 'user-check' : 'user-x'}" class="w-4 h-4"></i></button>
+            <button data-del-user title="Delete" class="p-2 rounded-lg hover:bg-red-50 text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
+        </tr>`).join('')}</tbody>
+    </table>
+  </div>
+  <p class="text-xs text-gray-500 mt-3">Excel columns: <b>Name, Username, Password, Email, Role, Aliases, Active</b>. Role = admin or employee. Existing usernames are updated; new ones are added.</p>`;
+}
+function bindTeam() {
+  if (State.view !== 'team') return;
+  $('#addUserBtn').onclick = () => userModal();
+  $('#exportBtn').onclick = exportUsersCsv;
+  $('#importBtn').onclick = () => $('#importFile').click();
+  $('#importFile').onchange = e => e.target.files[0] && importUsersFile(e.target.files[0]);
+  document.querySelectorAll('[data-mention-user]').forEach(b => b.onclick = () => taskComposer(userById(b.closest('[data-uid]').dataset.uid)));
+  document.querySelectorAll('[data-edit-user]').forEach(b => b.onclick = () => userModal(userById(b.closest('[data-uid]').dataset.uid)));
+  document.querySelectorAll('[data-toggle-user]').forEach(b => b.onclick = async () => {
+    const u = userById(b.closest('[data-uid]').dataset.uid);
+    if (u.id === State.session.user.id) return toast('You cannot deactivate yourself', 'err');
+    try { await Api.upsertUser({ id: u.id, username: u.username, active: u.active === false }); toast(u.active === false ? 'User reactivated' : 'User deactivated'); sync(); } catch (e) { toast(e.message, 'err'); }
+  });
+  document.querySelectorAll('[data-del-user]').forEach(b => b.onclick = async () => {
+    const u = userById(b.closest('[data-uid]').dataset.uid);
+    if (u.id === State.session.user.id) return toast('You cannot delete yourself', 'err');
+    if (!confirm(`Delete ${u.name}? Their open tasks will move to the Unassigned queue. Tip: "Deactivate" keeps history.`)) return;
+    try { await Api.deleteUser(u.id); toast('User deleted'); sync(); } catch (e) { toast(e.message, 'err'); }
+  });
+}
+function userModal(u = null) {
+  const edit = !!u;
+  $('#modal-root').innerHTML = `
+  <div class="modal-open fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" id="modalBg">
+    <form id="userForm" class="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-4 fade-in max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between"><h2 class="font-display font-bold text-xl">${edit ? 'Edit member' : 'Add team member'}</h2>
+        <button type="button" id="closeModal" class="p-2 rounded-lg hover:bg-gray-100"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        ${field('name', 'Full name', u?.name, 'text', true)}
+        ${field('username', 'Username', u?.username, 'text', true)}
+        ${field('email', 'Work email', u?.email, 'email', true)}
+        ${field('password', edit ? 'New password (optional)' : 'Password', '', 'password', !edit)}
+        <label class="block"><span class="block text-sm font-semibold mb-1.5">Role</span>
+          <select name="role" class="w-full px-4 py-3 rounded-xl border border-gray-200"><option value="employee">Employee</option><option value="admin" ${u?.role === 'admin' ? 'selected' : ''}>Admin</option></select></label>
+        <label class="flex items-center gap-2 mt-7"><input type="checkbox" name="active" ${u?.active === false ? '' : 'checked'} class="w-5 h-5 accent-green-700"><span class="font-semibold text-sm">Active</span></label>
+      </div>
+      ${field('aliases', 'Greeting aliases (comma separated)', u?.aliases, 'text', false, 'e.g. Ali, Aly, علي')}
+      <div class="flex gap-2 pt-2"><button type="button" id="cancelModal" class="flex-1 py-3 rounded-xl border border-gray-200 font-semibold">Cancel</button>
+        <button class="flex-1 py-3 rounded-xl bg-natura-700 hover:bg-natura-900 text-white font-semibold">${edit ? 'Save changes' : 'Add member'}</button></div>
+    </form></div>`;
+  icons();
+  const close = () => { $('#modal-root').innerHTML = ''; render(); };
+  $('#closeModal').onclick = close; $('#cancelModal').onclick = close;
+  $('#modalBg').onclick = e => { if (e.target.id === 'modalBg') close(); };
+  $('#userForm').onsubmit = async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    const rec = { id: u?.id, name: f.get('name').trim(), username: f.get('username').trim(), email: f.get('email').trim().toLowerCase(),
+                  role: f.get('role'), aliases: f.get('aliases').trim(), active: !!f.get('active') };
+    if (f.get('password')) rec.password = f.get('password');
+    if (u?.id === State.session.user.id && (rec.role !== 'admin' || !rec.active)) return toast('You cannot remove your own admin access', 'err');
+    try { await Api.upsertUser(rec); $('#modal-root').innerHTML = ''; toast(edit ? 'Member updated' : 'Member added'); await sync(); }
+    catch (err) { toast(err.message, 'err'); }
+  };
+}
+function field(name, label, value = '', type = 'text', required = false, ph = '') {
+  return `<label class="block"><span class="block text-sm font-semibold mb-1.5">${label}</span>
+    <input name="${name}" type="${type}" value="${esc(value || '')}" ${required ? 'required' : ''} placeholder="${esc(ph)}" ${type === 'password' ? 'autocomplete="new-password"' : ''}
+      class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-natura-500 focus:ring-2 focus:ring-natura-leaf/40 outline-none"></label>`;
+}
+function exportUsersCsv() {
+  const head = ['Name', 'Username', 'Password', 'Email', 'Role', 'Aliases', 'Active'];
+  const rows = State.users.map(u => [u.name, u.username, '', u.email, u.role, u.aliases || '', u.active === false ? 'FALSE' : 'TRUE']);
+  const csv = [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+  a.download = 'natura-users.csv'; a.click();
+  toast('Exported (passwords left blank — fill them in for new users)');
+}
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+async function importUsersFile(file) {
+  try {
+    if (!window.XLSX) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    const pick = (r, ...keys) => { for (const k of Object.keys(r)) if (keys.includes(k.trim().toLowerCase())) return String(r[k]).trim(); return ''; };
+    // Only columns that exist in the sheet are applied, so a Username+Password-only sheet
+    // updates passwords without touching anyone's role, email or aliases.
+    const cols = new Set(Object.keys(raw[0] || {}).map(k => k.trim().toLowerCase()));
+    const has = (...k) => k.some(x => cols.has(x));
+    const rows = raw.map(r => {
+      const o = { username: pick(r, 'username', 'user', 'login') };
+      if (has('name', 'full name') && pick(r, 'name', 'full name')) o.name = pick(r, 'name', 'full name');
+      if (pick(r, 'password', 'pass')) o.password = pick(r, 'password', 'pass');
+      if (has('email', 'e-mail', 'mail')) o.email = pick(r, 'email', 'e-mail', 'mail').toLowerCase();
+      if (has('role')) o.role = /admin/i.test(pick(r, 'role')) ? 'admin' : 'employee';
+      if (has('aliases', 'alias', 'nicknames')) o.aliases = pick(r, 'aliases', 'alias', 'nicknames');
+      if (has('active', 'status')) o.active = !/^(false|no|0|inactive)$/i.test(pick(r, 'active', 'status') || 'true');
+      if (!State.users.some(u => u.username.toLowerCase() === o.username.toLowerCase())) {   // brand-new user: sensible defaults
+        o.name = o.name || o.username.replace(/\b\w/g, c => c.toUpperCase());
+        o.role = o.role || 'employee'; o.email = o.email || ''; o.active = o.active ?? true;
+      }
+      return o;
+    }).filter(r => r.username);
+    if (!rows.length) return toast('No valid rows found — check the column names', 'err');
+    const newcomers = rows.filter(r => !State.users.some(u => u.username.toLowerCase() === r.username.toLowerCase()) && !r.password);
+    if (newcomers.length) return toast(`Missing password for new user(s): ${newcomers.map(r => r.username).join(', ')}`, 'err');
+    if (!confirm(`Import ${rows.length} user(s) from "${file.name}"?`)) return;
+    await Api.importUsers(rows); toast(`${rows.length} user(s) imported`); sync();
+  } catch (e) { toast('Import failed: ' + (e?.message || 'could not load the Excel reader — check your internet connection'), 'err'); }
+  finally { const i = $('#importFile'); if (i) i.value = ''; }
+}
+
+/* =====================================================================
+   @MENTION MANUAL TASKS
+   Type "@" in the description → team list pops up at the cursor,
+   filters as you type, ↑/↓ + Enter/Tab (or tap) to pick.
+   Every @mentioned person gets the task in their own queue.
+   ===================================================================== */
+const Mention = {
+  activeUsers() { return State.users.filter(u => u.active !== false); },
+  candidates(q) {
+    q = q.toLowerCase();
+    const load = id => State.tasks.filter(t => t.assignee === id && !isDone(t)).length;
+    return this.activeUsers()
+      .map(u => {
+        const name = u.name.toLowerCase(), first = name.split(' ')[0];
+        const aliases = String(u.aliases || '').toLowerCase();
+        let rank = !q ? 2 : first.startsWith(q) ? 0 : name.split(' ').some(p => p.startsWith(q)) || u.username.toLowerCase().startsWith(q) ? 1
+                 : name.includes(q) || aliases.includes(q) ? 2 : -1;
+        return { u, rank, load: load(u.id) };
+      })
+      .filter(x => x.rank >= 0)
+      .sort((a, b) => a.rank - b.rank || a.u.name.localeCompare(b.u.name))
+      .slice(0, 8);
+  },
+  // Which users are tagged in the text? Works for picked names and hand-typed @username.
+  parse(text) {
+    let work = ' ' + String(text || '');
+    const found = [];
+    const reEsc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const tokens = this.activeUsers().flatMap(u => [{ u, key: u.name }, { u, key: u.username }])
+                                     .sort((a, b) => b.key.length - a.key.length);
+    for (const { u, key } of tokens) {
+      const re = new RegExp('@' + reEsc(key) + '(?![\\p{L}\\p{N}._-])', 'giu');
+      if (re.test(work)) { if (!found.includes(u)) found.push(u); work = work.replace(re, ' '); }
+    }
+    return found;
+  },
+  strip(text) {   // text with every @mention removed (used to auto-title a task)
+    let out = String(text || '');
+    const reEsc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    this.activeUsers().flatMap(u => [u.name, u.username]).sort((a, b) => b.length - a.length)
+      .forEach(k => { out = out.replace(new RegExp('@' + reEsc(k) + '(?![\\p{L}\\p{N}._-])', 'giu'), ' \u0001 '); });
+    out = out.replace(/\u0001(\s*(?:,|and|&|و)\s*\u0001)+/g, '\u0001').replace(/\u0001/g, ' ').replace(/\s+/g, ' ').trim();
+    let prev;   // drop filler left at the start: "Please ask … to send" → "send"
+    do { prev = out; out = out.replace(/^(?:please|kindly|pls|can you|could you|would you|ask|tell|remind|to|,|:|-)\s*/i, ''); } while (out !== prev);
+    return out;
+  }
+};
+function renderMentions(text) {
+  let html = esc(text);
+  const names = State.users.flatMap(u => [u.name, u.username]).filter(Boolean).sort((a, b) => b.length - a.length);
+  const reEsc = v => esc(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!names.length) return html;
+  const re = new RegExp('@(' + names.map(reEsc).join('|') + ')(?![\\p{L}\\p{N}._-])', 'giu');
+  return html.replace(re, m => `<span class="mention">${m}</span>`);
+}
+// Pixel position of the caret inside a textarea (mirror-div technique)
+function caretXY(ta, pos) {
+  const cs = getComputedStyle(ta), div = document.createElement('div');
+  ['boxSizing', 'width', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'paddingTop', 'paddingRight',
+   'paddingBottom', 'paddingLeft', 'fontStyle', 'fontVariant', 'fontWeight', 'fontSize', 'lineHeight', 'fontFamily', 'textAlign',
+   'textTransform', 'textIndent', 'letterSpacing', 'wordSpacing', 'tabSize', 'direction'].forEach(p => div.style[p] = cs[p]);
+  Object.assign(div.style, { position: 'absolute', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', top: '0', left: '-9999px' });
+  div.textContent = ta.value.slice(0, pos);
+  const span = document.createElement('span'); span.textContent = ta.value.slice(pos) || '.'; div.appendChild(span);
+  document.body.appendChild(div);
+  const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5;
+  const r = { top: span.offsetTop - ta.scrollTop, left: span.offsetLeft - ta.scrollLeft, lh };
+  div.remove(); return r;
+}
+function toLocalInput(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+function taskComposer(prefillUser = null) {
+  const me = State.session.user;
+  $('#modal-root').innerHTML = `
+  <div class="modal-open fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center sm:p-4" id="modalBg">
+    <form id="taskForm" class="bg-white w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 fade-in max-h-[94vh] overflow-y-auto" autocomplete="off">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-natura-harvest/25 text-orange-800 flex items-center justify-center"><i data-lucide="at-sign" class="w-5 h-5"></i></div>
+        <div class="mr-auto"><h2 class="font-display font-bold text-xl leading-tight">New task</h2><p class="text-sm text-gray-500">Type <b class="text-natura-700">@</b> to assign it to a teammate</p></div>
+        <button type="button" data-close class="p-2 rounded-lg hover:bg-gray-100" aria-label="Close"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <label class="block"><span class="block text-sm font-semibold mb-1.5">Title <span class="font-normal text-gray-400">(optional)</span></span>
+        <input name="title" maxlength="120" placeholder="e.g. Send revised price list to Gulf Foods" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-natura-500 focus:ring-2 focus:ring-natura-leaf/40 outline-none"></label>
+
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-sm font-semibold">What needs to be done?</span>
+          <button type="button" id="atBtn" class="text-xs font-bold text-natura-700 bg-natura-cream hover:bg-natura-sand rounded-lg px-2.5 py-1 flex items-center gap-1"><i data-lucide="at-sign" class="w-3.5 h-3.5"></i>Mention</button>
+        </div>
+        <div id="mentionWrap" class="relative">
+          <textarea id="taskDesc" name="description" rows="5" maxlength="2000" required
+            placeholder="@Ali please send the updated quotation to Frischmarkt before Wednesday."
+            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="mentionMenu"
+            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-natura-500 focus:ring-2 focus:ring-natura-leaf/40 outline-none resize-y leading-relaxed"></textarea>
+          <div id="mentionMenu" role="listbox" class="mention-menu hidden absolute z-[75] w-72 max-w-full bg-white rounded-xl overflow-hidden"></div>
+        </div>
+        <div id="assigneePreview" class="mt-2 min-h-[34px] flex flex-wrap items-center gap-2 text-sm"></div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <span class="block text-sm font-semibold mb-1.5">Due <span class="font-normal text-gray-400">(optional)</span></span>
+          <input name="dueAt" type="datetime-local" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-natura-500 outline-none">
+          <div class="flex gap-1.5 mt-2">
+            ${[['2h', 'In 2 hours'], ['eod', 'Today 5 pm'], ['tom', 'Tomorrow']].map(([k, l]) => `<button type="button" data-due="${k}" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200">${l}</button>`).join('')}
+          </div>
+        </div>
+        <label class="flex items-start gap-3 sm:mt-7 p-3 rounded-xl border border-gray-200 cursor-pointer has-[:checked]:border-red-300 has-[:checked]:bg-red-50">
+          <input type="checkbox" name="urgent" class="mt-0.5 w-5 h-5 accent-red-600"><span><b class="text-sm">Urgent</b><br><span class="text-xs text-gray-500">Shows a red Urgent badge</span></span></label>
+      </div>
+
+      <div class="flex gap-2 pt-1">
+        <button type="button" data-close class="flex-1 py-3 rounded-xl border border-gray-200 font-semibold">Cancel</button>
+        <button id="createBtn" class="flex-[2] py-3 rounded-xl bg-natura-700 hover:bg-natura-900 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold flex items-center justify-center gap-2" disabled>
+          <i data-lucide="send" class="w-4 h-4"></i><span>Create task</span></button>
+      </div>
+    </form>
+  </div>`;
+  icons();
+
+  const ta = $('#taskDesc'), menu = $('#mentionMenu'), wrap = $('#mentionWrap');
+  const st = { open: false, start: 0, items: [], idx: 0 };
+  const close = () => { document.removeEventListener('keydown', escClose); $('#modal-root').innerHTML = ''; render(); };
+  document.querySelectorAll('#modal-root [data-close]').forEach(b => b.onclick = close);
+  $('#modalBg').onclick = e => { if (e.target.id === 'modalBg') close(); };
+  const escClose = e => { if (e.key === 'Escape' && !st.open && $('#taskForm')) { close(); document.removeEventListener('keydown', escClose); } };
+  document.addEventListener('keydown', escClose);
+
+  function hideMenu() { st.open = false; menu.classList.add('hidden'); ta.setAttribute('aria-expanded', 'false'); ta.removeAttribute('aria-activedescendant'); }
+  function drawMenu() {
+    menu.innerHTML = st.items.length
+      ? `<div class="px-3 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">Assign to</div>` +
+        st.items.map((x, i) => `
+        <div id="mopt-${i}" role="option" aria-selected="${i === st.idx}" data-pick="${i}" class="mention-item flex items-center gap-3 px-3 py-2.5 cursor-pointer">
+          <span class="w-9 h-9 rounded-full ${x.u.role === 'admin' ? 'bg-natura-700 text-white' : 'bg-natura-sand text-natura-700'} text-xs font-bold flex items-center justify-center shrink-0">${esc(initials(x.u.name))}</span>
+          <span class="min-w-0 flex-1 leading-tight"><b class="block truncate text-sm">${esc(x.u.name)}${x.u.id === me.id ? ' <span class="font-normal text-gray-400">(you)</span>' : ''}</b>
+            <span class="block truncate text-xs text-gray-500">@${esc(x.u.username)}${isAdmin() ? ` · ${x.load} open` : x.u.role === 'admin' ? ' · Admin' : ''}</span></span>
+          <span class="mention-enter opacity-0 text-[10px] font-bold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">↵</span>
+        </div>`).join('')
+      : `<div class="px-4 py-4 text-sm text-gray-500 flex items-center gap-2"><i data-lucide="user-x" class="w-4 h-4"></i>No matching team member</div>`;
+    icons();
+    menu.querySelectorAll('[data-pick]').forEach(el => {
+      el.onpointerdown = e => { e.preventDefault(); pick(+el.dataset.pick); };   // keep focus in textarea
+      el.onmouseenter = () => { st.idx = +el.dataset.pick; menu.querySelectorAll('[data-pick]').forEach((n, i) => n.setAttribute('aria-selected', i === st.idx)); };
+    });
+    ta.setAttribute('aria-activedescendant', st.items.length ? 'mopt-' + st.idx : '');
+  }
+  function placeMenu() {
+    menu.classList.remove('hidden'); menu.classList.remove('pop-in'); void menu.offsetWidth; menu.classList.add('pop-in');
+    const c = caretXY(ta, st.start);
+    const narrow = wrap.clientWidth < 420;
+    const w = narrow ? wrap.clientWidth : Math.min(288, wrap.clientWidth);
+    menu.style.width = w + 'px';
+    const left = narrow ? 0 : Math.max(0, Math.min(ta.offsetLeft + c.left - 12, wrap.clientWidth - w));
+    let top = ta.offsetTop + Math.min(c.top, ta.clientHeight - c.lh) + c.lh + 6;
+    menu.style.left = left + 'px'; menu.style.top = top + 'px';
+  }
+  function updateMention() {
+    const pos = ta.selectionStart;
+    if (pos !== ta.selectionEnd) return hideMenu();
+    const m = ta.value.slice(0, pos).match(/(?:^|[\s(,])@([^\s@]{0,30})$/u);
+    if (!m) return hideMenu();
+    st.start = pos - m[1].length - 1;
+    const items = Mention.candidates(m[1]);
+    if (!st.open || items.map(x => x.u.id).join() !== st.items.map(x => x.u.id).join()) st.idx = 0;
+    st.items = items; st.open = true; ta.setAttribute('aria-expanded', 'true');
+    drawMenu(); placeMenu();
+  }
+  function pick(i) {
+    const x = st.items[i]; if (!x) return;
+    const before = ta.value.slice(0, st.start), after = ta.value.slice(ta.selectionStart).replace(/^[^\s@]*/, '');
+    const insert = '@' + x.u.name + ' ';
+    ta.value = before + insert + after.replace(/^\s/, '');
+    const caret = (before + insert).length;
+    ta.focus(); ta.setSelectionRange(caret, caret);
+    hideMenu(); refresh();
+  }
+  function refresh() {
+    const users = Mention.parse(ta.value);
+    const btn = $('#createBtn');
+    btn.disabled = !users.length || ta.value.trim().length < 3;
+    btn.querySelector('span').textContent = users.length > 1 ? `Create ${users.length} tasks` : 'Create task';
+    $('#assigneePreview').innerHTML = users.length
+      ? `<span class="text-gray-500">Goes to</span>` + users.map(u => `<span class="flex items-center gap-1.5 bg-natura-cream border border-natura-sand rounded-full pl-1 pr-3 py-0.5 fade-in"><span class="w-6 h-6 rounded-full bg-natura-700 text-white text-[10px] font-bold flex items-center justify-center">${esc(initials(u.name))}</span><b>${esc(u.name)}</b></span>`).join('')
+        + (users.length > 1 ? `<span class="text-xs text-gray-500">— each gets their own copy</span>` : '')
+      : `<span class="text-gray-400 flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4"></i>Mention at least one person with @ to assign this task</span>`;
+    icons();
+  }
+
+  ta.addEventListener('input', () => { updateMention(); refresh(); });
+  ta.addEventListener('click', updateMention);
+  ta.addEventListener('keyup', e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) updateMention(); });
+  ta.addEventListener('scroll', () => st.open && placeMenu());
+  ta.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ta) hideMenu(); }, 150));
+  ta.addEventListener('keydown', e => {
+    if (!st.open) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') $('#taskForm').requestSubmit(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); if (!st.items.length) return;
+      st.idx = (st.idx + (e.key === 'ArrowDown' ? 1 : -1) + st.items.length) % st.items.length; drawMenu();
+      menu.querySelector(`#mopt-${st.idx}`)?.scrollIntoView({ block: 'nearest' });
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && st.items.length) { e.preventDefault(); pick(st.idx); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); hideMenu(); }
+  });
+  $('#atBtn').onpointerdown = e => e.preventDefault();   // keep the keyboard open on phones
+  $('#atBtn').onclick = () => {
+    const pos = ta.selectionStart ?? ta.value.length, before = ta.value.slice(0, pos);
+    const ins = (before && !/\s$/.test(before) ? ' ' : '') + '@';
+    ta.value = before + ins + ta.value.slice(pos);
+    ta.focus(); ta.setSelectionRange(pos + ins.length, pos + ins.length); updateMention(); refresh();
+  };
+  document.querySelectorAll('#modal-root [data-due]').forEach(b => b.onclick = () => {
+    const d = new Date();
+    if (b.dataset.due === '2h') d.setHours(d.getHours() + 2);
+    if (b.dataset.due === 'eod') { d.setHours(17, 0, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); }
+    if (b.dataset.due === 'tom') { d.setDate(d.getDate() + 1); d.setHours(12, 0, 0, 0); }
+    $('#taskForm [name=dueAt]').value = toLocalInput(d);
+  });
+
+  $('#taskForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const description = ta.value.trim();
+    const users = Mention.parse(description);
+    if (!users.length) { toast('Type @ and pick who should do this', 'err'); ta.focus(); return; }
+    let title = String(f.get('title') || '').trim();
+    if (!title) {
+      title = Mention.strip(description);
+      title = (title.charAt(0).toUpperCase() + title.slice(1)).slice(0, 70) + (title.length > 70 ? '…' : '');
+      if (!title) title = 'Task from ' + me.name;
+    }
+    const dueRaw = f.get('dueAt');
+    const payload = { title, description, assignees: users.map(u => u.id), dueAt: dueRaw ? new Date(dueRaw).toISOString() : '', urgent: !!f.get('urgent') };
+    const btn = $('#createBtn'); btn.disabled = true; btn.querySelector('span').textContent = 'Creating…';
+    try {
+      await Api.createTasks(payload);
+      document.removeEventListener('keydown', escClose);
+      $('#modal-root').innerHTML = '';
+      toast(users.length > 1 ? `${users.length} tasks created` : (users[0].id === me.id ? 'Task added to your list' : `Task assigned to ${users[0].name}`));
+      if (!users.some(u => u.id === me.id) && State.view === 'mine') State.filter = 'sent';
+      await sync();
+    } catch (err) { toast(err.message, 'err'); refresh(); }
+  };
+
+  refresh();
+  if (prefillUser) { ta.value = '@' + prefillUser.name + ' '; refresh(); }
+  setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 60);
+}
+
+/* ---- Reply helpers ---- */
+function openReply(id, mode) {
+  const t = State.tasks.find(x => x.id === id); if (!t) return;
+  if (mode === 'webmail') { window.open(CONFIG.WEBMAIL === 'outlook' ? CONFIG.OUTLOOK_URL : CONFIG.ZOHO_URL, '_blank', 'noopener'); return; }
+  const me = State.session.user;
+  const first = (t.fromName || '').split(' ')[0];
+  const subject = /^re:/i.test(t.subject) ? t.subject : 'Re: ' + t.subject;
+  const body = `Dear ${first},\n\nThank you for your email regarding "${t.subject}".\n\n\n\nBest regards,\n${me.name}\n${CONFIG.COMPANY}\n\n----- Original message -----\nFrom: ${t.fromName} <${t.from}>\nSent: ${new Date(t.receivedAt).toLocaleString()}\n\n${t.body}`;
+  if (CONFIG.WEBMAIL === 'outlook') {
+    window.open(`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(t.from)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank', 'noopener');
+  } else {
+    location.href = `mailto:${encodeURIComponent(t.from)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
+  }
+  setTimeout(() => toast('After sending, tap "Replied" to close the task'), 600);
+}
+
+/* =====================================================================
+   PWA: manifest (generated in-page) + service worker (sw.js)
+   ===================================================================== */
+async function setupPWA() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#1F5130"/><g transform="translate(96 96) scale(13.3)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></g><circle cx="392" cy="120" r="48" fill="#E9A23B"/></svg>`;
+  const svgUrl = 'data:image/svg+xml;base64,' + btoa(svg);
+  const png = size => new Promise(res => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = c.height = size; c.getContext('2d').drawImage(img, 0, 0, size, size); res(c.toDataURL('image/png')); }; img.onerror = () => res(svgUrl); img.src = svgUrl; });
+  const [p192, p512] = await Promise.all([png(192), png(512)]);
+  window.__iconPng = p192;
+  const base = location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '');
+  const manifest = {
+    name: CONFIG.APP_NAME, short_name: 'Natura Tasks', description: 'Email-driven task tracking for Natura Agro-Trade',
+    start_url: base, scope: base, display: 'standalone', orientation: 'any', background_color: '#F6F4EC', theme_color: '#1F5130',
+    icons: [{ src: p192, sizes: '192x192', type: 'image/png', purpose: 'any maskable' }, { src: p512, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
+  };
+  const link = document.createElement('link'); link.rel = 'manifest';
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+  document.head.appendChild(link);
+  const apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; apple.href = p192; document.head.appendChild(apple);
+  const fav = document.createElement('link'); fav.rel = 'icon'; fav.href = svgUrl; document.head.appendChild(fav);
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__installPrompt = e; if (State.session) render(); });
+}
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+async function boot() {
+  if (!State.session) return renderLogin();
+  if (!State.view) State.view = isAdmin() ? 'overview' : 'mine';
+  $('#root').innerHTML = `<div class="min-h-screen flex items-center justify-center"><div class="flex items-center gap-3 text-natura-700 font-semibold"><i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>Loading your tasks…</div></div>`; icons();
+  await sync(false);
+  startLoops();
+}
+setupPWA();
+(LIVE ? Promise.resolve() : Local.ensureSeed()).then(boot);
+</script>
+</body>
+</html>
